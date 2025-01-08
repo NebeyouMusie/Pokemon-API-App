@@ -74,7 +74,7 @@ The app will start and be available at `http://localhost:5000` (or another port 
 ### Base URL
 
 ```
-http://localhost:5000/api/Pokemon
+http://localhost:5048/api/Pokemon
 ```
 
 ### Example Usages
