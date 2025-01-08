@@ -1,12 +1,16 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-
+using System;
+using MongoDB.Driver;
+using PokemonApi.Database;
+using PokemonApi.Services;
+using DotNetEnv;
 
 namespace PokemonApi
 {
@@ -30,45 +34,32 @@ namespace PokemonApi
         Task DeleteAsync(int id);
     }
 
-    // Implementation of Pokemon Service
-    public class PokemonService : IPokemonService
+    // MongoDbService Implementation
+    public class MongoDbService : IPokemonService
     {
-        private readonly List<Pokemon> _pokemonList = new();
+        private readonly IMongoCollection<Pokemon> _pokemonCollection;
 
-        public Task<List<Pokemon>> GetAllAsync() => Task.FromResult(_pokemonList);
-
-        public Task<Pokemon> GetByIdAsync(int id)
+        public MongoDbService(DatabaseSettings settings)
         {
-            var pokemon = _pokemonList.FirstOrDefault(p => p.Id == id);
-            return Task.FromResult(pokemon);
+            var client = new MongoClient(settings.ConnectionString);
+            var database = client.GetDatabase(settings.DatabaseName);
+            _pokemonCollection = database.GetCollection<Pokemon>(settings.PokemonCollectionName);
         }
 
-        public Task AddAsync(Pokemon pokemon)
-        {
-            _pokemonList.Add(pokemon);
-            return Task.CompletedTask;
-        }
+        public async Task<List<Pokemon>> GetAllAsync() =>
+            await _pokemonCollection.Find(Builders<Pokemon>.Filter.Empty).ToListAsync();
 
-        public Task UpdateAsync(Pokemon pokemon)
-        {
-            var existing = _pokemonList.FirstOrDefault(p => p.Id == pokemon.Id);
-            if (existing != null)
-            {
-                existing.Name = pokemon.Name;
-                existing.Type = pokemon.Type;
-                existing.Ability = pokemon.Ability;
-                existing.Level = pokemon.Level;
-            }
-            return Task.CompletedTask;
-        }
+        public async Task<Pokemon> GetByIdAsync(int id) =>
+            await _pokemonCollection.Find(p => p.Id == id).FirstOrDefaultAsync();
 
-        public Task DeleteAsync(int id)
-        {
-            var pokemon = _pokemonList.FirstOrDefault(p => p.Id == id);
-            if (pokemon != null)
-                _pokemonList.Remove(pokemon);
-            return Task.CompletedTask;
-        }
+        public async Task AddAsync(Pokemon pokemon) =>
+            await _pokemonCollection.InsertOneAsync(pokemon);
+
+        public async Task UpdateAsync(Pokemon pokemon) =>
+            await _pokemonCollection.ReplaceOneAsync(p => p.Id == pokemon.Id, pokemon);
+
+        public async Task DeleteAsync(int id) =>
+            await _pokemonCollection.DeleteOneAsync(p => p.Id == id);
     }
 
     // Controller
@@ -115,13 +106,32 @@ namespace PokemonApi
         }
     }
 
-    // Program Setup
+    // Startup Configuration
     public class Startup
     {
+        private readonly IConfiguration _configuration;
+
+        public Startup(IConfiguration configuration)
+        {
+            _configuration = configuration;
+
+            // Load environment variables
+            DotNetEnv.Env.Load();
+        }
+
         public void ConfigureServices(IServiceCollection services)
         {
+            // Retrieve the MongoDB connection string from the .env file
+            var connectionString = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING");
+
+            // Load database settings
+            var databaseSettings = _configuration.GetSection("DatabaseSettings").Get<DatabaseSettings>();
+            databaseSettings.ConnectionString = connectionString;
+
+            // Register services
+            services.AddSingleton(databaseSettings);
+            services.AddSingleton<IPokemonService, MongoDbService>();
             services.AddControllers();
-            services.AddSingleton<IPokemonService, PokemonService>();
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -140,10 +150,14 @@ namespace PokemonApi
         }
     }
 
+    // Program Setup
     public class Program
     {
         public static void Main(string[] args)
         {
+            // Load environment variables
+            DotNetEnv.Env.Load();
+
             CreateHostBuilder(args).Build().Run();
         }
 
