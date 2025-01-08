@@ -1,0 +1,55 @@
+# Build artifacts
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio specific
+.vs/
+
+# Rider specific
+.idea/
+*.sln.iml
+
+# Auto-generated files
+*.generated.cs
+*.g.cs
+*.g.i.cs
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Package management
+*.nupkg
+*.snupkg
+packages/
+
+# Dotnet-specific
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Resharper files
+_ReSharper*/
+*.DotSettings.user
+
+# Dependency manager directories
+node_modules/
+bower_components/
+
+# Coverage Reports
+*.coverage
+*.coveragexml
+*.coveragejson
+*.lcov
+
+# Others
+.env
